@@ -81,14 +81,7 @@ def merge_tensorrt_forward(self, input_ids, attention_mask, pixel_values, image_
 
 
 def setup_tensorrt_engines(qwen_model, trt_engine_path):
-    if hasattr(qwen_model.model, "language_model"):
-        del qwen_model.model.language_model
-    if hasattr(qwen_model.model, "vision_model"):
-        del qwen_model.model.vision_model
-    if hasattr(qwen_model, "lm_head"):
-        del qwen_model.lm_head
 
-    torch.cuda.empty_cache()
     qwen_model.llm_engine = trt.Engine(os.path.join(trt_engine_path, "llm.engine"))
     qwen_model.vit_engine = trt.Engine(os.path.join(trt_engine_path, "vit.engine"))
     qwen_model.vlm_engine = trt.Engine(os.path.join(trt_engine_path, "vlm.engine"))
@@ -102,9 +95,16 @@ def setup_tensorrt_engines(qwen_model, trt_engine_path):
 
 def load_part_tensorrt(config):
     model_input = get_model_input(config)
-    qwen_model = Qwen3VLForConditionalGeneration.from_pretrained(config.qwen_path, dtype=torch.float32,
-                                                                 device_map='cuda', attn_implementation="eager")
+    qwen_model = Qwen3VLForConditionalGeneration.from_pretrained(config.qwen_path, dtype=torch.bfloat16,
+                                                                 device_map='cpu', attn_implementation="eager")
+    if hasattr(qwen_model.model, "language_model"):
+        del qwen_model.model.language_model
+    if hasattr(qwen_model.model, "vision_model"):
+        del qwen_model.model.vision_model
+    if hasattr(qwen_model, "lm_head"):
+        del qwen_model.lm_head
 
+    torch.cuda.empty_cache()
     setup_tensorrt_engines(qwen_model, os.path.join(config.onnx_path, "tensorrt"))
 
     # Create ONNX LLM inputs
@@ -135,16 +135,17 @@ def load_part_tensorrt(config):
     # Test VLM
     input_ids = model_input["input_ids"].clone().to(config.device)
     attention_masks = model_input["attention_mask"].clone().to(config.device)
-    image_embeds = torch.randn((64, 2048), dtype=torch.float16 if config.dtype=="fp16" else torch.float32).to(config.device)
+    image_embeds = torch.randn((64, qwen_model.config.vision_config.out_hidden_size), dtype=torch.float16 if config.dtype=="fp16" else torch.float32).to(config.device)
     vlm_output = qwen_model.model(input_ids, attention_masks, image_embeds)
     # merge_output = qwen_model(input_ids, attention_masks, hidden_states, image_grid_thw)
 
 
 def load_model_tensorrt(config):
     model_input = get_model_input(config)
-    qwen_model = Qwen3VLForConditionalGeneration.from_pretrained(config.qwen_path, dtype=torch.float32,
-                                                                 device_map='cuda', attn_implementation="eager")
-    setup_tensorrt_engines(qwen_model, os.path.join(config.onnx_path, "tensorrt"))
+    qwen_model = Qwen3VLForConditionalGeneration.from_pretrained(config.qwen_path, dtype=torch.bfloat16,
+                                                                 device_map='cpu', attn_implementation="eager")
+
+    setup_tensorrt_engines(qwen_model, os.path.join(config.export_path, "tensorrt"))
     # Merge Model For Vision Language
     model_input["input_ids"] = model_input["input_ids"].to(dtype=torch.int64, device=config.device)
     model_input["attention_mask"] = model_input["attention_mask"].to(dtype=torch.int64, device=config.device)
@@ -166,20 +167,25 @@ def load_model_tensorrt(config):
         print(output)
         print("\n" + "-" * 50 + "\n")
 
+    start_time = time.perf_counter()
+    for _ in range(1000):
+        qwen_model.forward(**model_input)
+    print(time.perf_counter() - start_time)
+
 
 def compare_inference_speed(config):
     model_input = get_model_input(config)
-    qwen_model = Qwen3VLForConditionalGeneration.from_pretrained(config.qwen_path, dtype=torch.float32,
-                                                                 device_map='cuda', attn_implementation="eager")
-    qwen_start_time = time.perf_counter()
-    qwen_tokens = 0
-    for _ in range(10):
-        with torch.no_grad():
-            model_output = qwen_model.generate(**model_input, use_cache=False, max_length=1280)[:, model_input['input_ids'].shape[1]:]
-            qwen_tokens += model_output.shape[0] * model_output.shape[1]
-    qwen_end_time = time.perf_counter()
+    qwen_model = Qwen3VLForConditionalGeneration.from_pretrained(config.qwen_path, dtype=torch.bfloat16,
+                                                                 device_map='cpu', attn_implementation="eager")
+    # qwen_start_time = time.perf_counter()
+    # qwen_tokens = 0
+    # for _ in range(10):
+    #     with torch.no_grad():
+    #         model_output = qwen_model.generate(**model_input, use_cache=False, max_length=1280)[:, model_input['input_ids'].shape[1]:]
+    #         qwen_tokens += model_output.shape[0] * model_output.shape[1]
+    # qwen_end_time = time.perf_counter()
 
-    setup_tensorrt_engines(qwen_model, os.path.join(config.onnx_path, "tensorrt"))
+    setup_tensorrt_engines(qwen_model, os.path.join(config.export_path, "tensorrt"))
     model_input["input_ids"] = model_input["input_ids"].to(dtype=torch.int64, device=config.device)
     model_input["attention_mask"] = model_input["attention_mask"].to(dtype=torch.int64, device=config.device)
     model_input["pixel_values"] = model_input["pixel_values"].to(dtype=torch.float16 if config.dtype=="fp16" else torch.float32, device=config.device)
@@ -192,7 +198,7 @@ def compare_inference_speed(config):
             model_output = qwen_model.generate(**model_input, use_cache=False, max_length=1280)[:, model_input['input_ids'].shape[1]:]
             tensorrt_tokens += model_output.shape[0] * model_output.shape[1]
     tensorrt_end_time = time.perf_counter()
-    print(f"Qwen3-vl Generated tokens nums:{qwen_tokens}, speed: {(qwen_tokens / (qwen_end_time - qwen_start_time)): 2f} tokens/sec")
+    # print(f"Qwen3-vl Generated tokens nums:{qwen_tokens}, speed: {(qwen_tokens / (qwen_end_time - qwen_start_time)): 2f} tokens/sec")
     print(f"Tensorrt Generated tokens nums:{tensorrt_tokens}, speed: {(tensorrt_tokens / (tensorrt_end_time - tensorrt_start_time)): 2f} tokens/sec")
 
 
@@ -202,6 +208,6 @@ if __name__ == "__main__":
     device = 'cuda'
     config = ArgsConfig()
     config.device = device
-    config.onnx_path += "_" + config.dtype
+    config.export_path += "_" + config.dtype
     # load_model_tensorrt(config)
     compare_inference_speed(config)
