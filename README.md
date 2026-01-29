@@ -20,10 +20,6 @@ This repository provides the ONNX-converted version of the **qwen3-vl-2b** multi
 ```
 This image shows a single, yellow, spherical object that appears to be a small, smooth, and rounded lemon. It is placed on a light-colored, possibly white or off-white, surface with a wood grain texture. The lemon has a rounded, slightly flattened top and a smooth surface. The lighting is even, and the object is the central focus of the image.
 ```
-
-## Requirements
-- Will be supplemented.
-
 ## Next task
 - Adapt images of different sizes
 - Comparison of Test Torch and ONNX inference Speed
@@ -32,10 +28,20 @@ This image shows a single, yellow, spherical object that appears to be a small, 
 
 
 ## Usage
+### 0. Environment Setup
+```bash
+conda create -n onnx python=3.10 -y
+conda activate onnx
+pip install -r requirements.txt
+git clone https://github.com/garlic-byte/Qwen3_VL_Export_ONNX_and_TensorRT.git
+cd Qwen3_VL_Export_ONNX_and_TensorRT
+```
+
 ### 1. Download Qwen3-VL
 ```bash
 # Download the model
-hf download Qwen/Qwen3-VL-2B-Instruct
+mkdir qwen3-vl-2b
+hf download Qwen/Qwen3-VL-2B-Instruct --local-dir=qwen3-vl-2b/
 ```
 
 ### 2. Conert Torch to ONNX and Test Inference
