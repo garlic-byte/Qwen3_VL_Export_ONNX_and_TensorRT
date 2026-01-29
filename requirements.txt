@@ -1,0 +1,7 @@
+torch==2.8.0
+torchvision==0.23.0
+torchaudio==2.8.0
+transformers==5.0.0
+onnxscript==0.5.7
+accelerate==1.12.0
+onnxruntime==1.23.2

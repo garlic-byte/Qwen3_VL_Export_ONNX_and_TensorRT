@@ -38,14 +38,16 @@ This image shows a single, yellow, spherical object that appears to be a small, 
 hf download Qwen/Qwen3-VL-2B-Instruct
 ```
 
-### 2. Conert Torch to ONNX
+### 2. Conert Torch to ONNX and Test Inference
 ```bash
 python qwen3_vl_export_onnx.py
+python inference_onnx.py
 ```
 
-### 3. Run Inference with ONNX Runtime
+### 3. Conert ONNX to TensorRT and Test Inference
 ```bash
-python inference_onnx.py
+bash build_engine.sh
+python inference_trt.py
 ```
 
 ## Model Conversion Notes
@@ -54,18 +56,18 @@ python inference_onnx.py
 - For optimal performance, use ONNX Runtime with GPU acceleration (install `onnxruntime-gpu` instead of `onnxruntime`).
 - The model retains the original qwen3-vl-2b's visual understanding and text generation capabilities.
 
-## Performance
-- Will be supplemented.
-- **Latency**: Using qwen's forward and ONNX inference for a thousand times:
-  
-  Torch(fp32) speed time:  44.46 (s), ONNX (fp32) speed time:  26.78 (s), ONNX (fp16) speed time:  18.13 (s), 
-- **Speed**:
-Qwen3-vl Generated tokens nums:1103, speed:  19.378385 tokens/sec
-ONNX Generated tokens nums:1062, speed:  38.667467 tokens/sec
-Tensorrt Generated tokens nums:842, speed:  66.579019 tokens/sec
 
-- **Accuracy**: 
-- **Memory Usage**:
+## Performance Benchmark
+| **Metric** | **Type** | **Value** |
+|------------|----------|-----------|
+| **Latency (1000 runs)** | Torch (fp32) | 44.46 (sec) |
+| | ONNX (fp32) | 26.78 (sec) |
+| | ONNX (fp16) | 18.13 (sec) |
+| | TensorRT (fp16) | 13.77 (sec) |
+| **Generation Speed (10 runs, fp16)** | Qwen3-vl | 19.378385 (tokens/sec) <br>*(Tokens generated: 1103)* |
+| | ONNX (tokens/sec) | 38.667467 (tokens/sec) <br>*(Tokens generated: 1062)* |
+| | TensorRT (tokens/sec) | 66.579019 (tokens/sec) <br>*(Tokens generated: 842)* |
+
 
 
 ## License

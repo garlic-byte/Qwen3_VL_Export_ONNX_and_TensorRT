@@ -27,6 +27,9 @@ class ArgsConfig:
     dtype: str = 'fp16'
     """Data type of ONNX model: 'fp16' or 'fp32' """
 
+    device: str = None
+    """Device used for ONNX model inference"""
+
 
 def export_qwen_llm(qwen_model, inputs, onnx_path, config):
     # Remove and create new onnx dir
@@ -188,7 +191,7 @@ def export_qwen_gen(qwen_model, inputs, onnx_path, config):
     del model
 
 
-def run_export(config):
+def run_export(config: ArgsConfig):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     config.device = device
     torch.manual_seed(42)
@@ -226,5 +229,5 @@ def run_export(config):
 
 
 if __name__ == "__main__":
-    config = ArgsConfig()
-    run_export(config)
+    cfg = ArgsConfig()
+    run_export(cfg)

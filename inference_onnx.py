@@ -275,7 +275,7 @@ def chat_inputs(processor, mode):
             "content": [
                 {
                     "type": "image",
-                    "image": "/home/wsj/Desktop/data/Downloads/weights/test_weigths_code/input1.png",
+                    "image": "demo_data/input1.png",
                 },
                 {"type": "text", "text": "Describe this image."},
             ],

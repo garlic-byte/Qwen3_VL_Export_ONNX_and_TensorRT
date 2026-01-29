@@ -10,7 +10,7 @@ def get_model_input(config):
             "content": [
                 {
                     "type": "image",
-                    "image": "/home/wsj/Desktop/data/Downloads/weights/test_weigths_code/input1.png",
+                    "image": "demo_data/input1.png",
                 },
                 {"type": "text", "text": "Describe this image."},
             ],
