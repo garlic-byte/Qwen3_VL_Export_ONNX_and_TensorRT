@@ -9,6 +9,9 @@ This repository provides the ONNX-converted version of the **qwen3-vl-2b** multi
 - **Output**: High-quality natural language description of the input image
 - **Conversion Source**: Original qwen3-vl-2b (PyTorch) → ONNX format
 
+## Future Features
+- **Qwen3.5-VL ONNX**: will be created soon.
+
 ## Inference Example
 ### Input
 <img src="demo_data/input1.png" alt="Input image">
