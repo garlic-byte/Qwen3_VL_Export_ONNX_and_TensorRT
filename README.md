@@ -1,4 +1,4 @@
-# qwen3-vl-2b-ONNX: Image-to-Text Inference Model
+# qwen3/3.5-ONNX: Image-to-Text Inference Model
 
 ## Overview
 This repository provides the ONNX-converted version of the **qwen3-vl-2b** multimodal model, optimized for efficient image-to-text generation. The model supports inference on single images with a fixed input resolution of 224×224 and outputs descriptive text based on visual content.
