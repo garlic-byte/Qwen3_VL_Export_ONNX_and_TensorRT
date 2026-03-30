@@ -54,6 +54,13 @@ python inference_onnx.py
 ```
 
 ### 3. Conert ONNX to TensorRT and Test Inference
+## My environment
+- CUDA 12.8
+- TensorRT Debian local repo:
+nv-tensorrt-local-repo-ubuntu2404-10.9.0-cuda-12.8_1.0-1_amd64.deb
+- Python TensorRT wheel:
+tensorrt-10.9.0.34
+
 ```bash
 bash build_engine.sh
 python inference_trt.py

@@ -6,7 +6,7 @@ from typing import Any, Callable, Optional, Union
 class Qwen3VLModelOpt(Qwen3VLModel):
     def __init__(self, qwen_config, onnx_config):
         self.batch_size = onnx_config.batch_size
-        self.imgs_nums = onnx_config.imgs_nums
+        self.imgs_nums = len(onnx_config.imgs_paths)
         super().__init__(qwen_config)
 
     def get_rope_index(

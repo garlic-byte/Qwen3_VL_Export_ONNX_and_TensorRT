@@ -2,7 +2,7 @@ import os
 import shutil
 import torch
 from transformers import Qwen3VLForConditionalGeneration
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from modules import Qwen3VLTextModelOpt, Qwen3VLVisualModelOpt, Qwen3VLModelOpt, Qwen3VLForConditionalGenerationOpt
 from utils import get_model_input
 
@@ -15,14 +15,14 @@ class ArgsConfig:
     qwen_path: str = '/home/wsj/Desktop/data/Downloads/weights/qwen3-vl-2b'
     """Path to the qwen directory or directories"""
 
-    export_path: str = 'qwen3_vl_2b'
+    export_path: str = 'export/qwen3_vl_2b'
     """Directory to save onnx model checkpoints."""
 
     batch_size: int = 1
     """Batch size of input for ONNX model inference"""
 
-    imgs_nums: int = 1
-    """Number of images for ONNX model inference"""
+    imgs_paths: tuple = ("demo_data/input1.png", )
+    """Path of images for ONNX model inference"""
 
     dtype: str = 'fp16'
     """Data type of ONNX model: 'fp16' or 'fp32' """
@@ -190,6 +190,35 @@ def export_qwen_gen(qwen_model, inputs, onnx_path, config):
     del hidden_states
     del model
 
+def export_part_onnx(qwen_model, opt_model, inputs, onnx_path, config):
+    dir_path = os.path.dirname(onnx_path)
+    if os.path.exists(dir_path):
+        shutil.rmtree(dir_path)
+    os.makedirs(dir_path)
+
+    if config.dtype == "fp16":
+        opt_model.half()
+
+    opt_model.load_state_dict(qwen_model.state_dict())
+    opt_model = opt_model.to(config.device)
+
+    input_ids = inputs["input_ids"]
+    batch_size, seq_len = input_ids.shape
+    hidden_states = torch.randn((batch_size, seq_len, qwen_model.config.text_config.hidden_size), dtype=torch.float16 if config.dtype=="fp16" else torch.float32).to(config.device)
+    torch.onnx.export(
+        opt_model,
+        (hidden_states,),
+        onnx_path,
+        input_names=["hidden_states"],
+        output_names=["logits"],
+        dynamic_axes={
+            "hidden_states": {0: "batch_size", 1: "seq_length"},
+        },
+        verbose=True,
+    )
+
+    print("Export Qwen3 Generate done!")
+    del hidden_states
 
 def run_export(config: ArgsConfig):
     device = "cuda" if torch.cuda.is_available() else "cpu"

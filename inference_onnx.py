@@ -16,7 +16,7 @@ class ArgsConfig:
     qwen_path: str = '/home/wsj/Desktop/data/Downloads/weights/qwen3-vl-2b'
     """Path to the qwen directory or directories"""
 
-    export_path: str = 'qwen3_vl_2b'
+    export_path: str = 'export/qwen3_vl_2b'
     """Directory to save onnx model checkpoints."""
 
     inference_mode: Literal["pytorch", "onnx", "compare"] = "onnx"

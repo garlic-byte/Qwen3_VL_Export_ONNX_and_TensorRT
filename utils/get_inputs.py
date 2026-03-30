@@ -7,21 +7,13 @@ def get_model_input(config):
     messages = [
         {
             "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "image": "demo_data/input1.png",
-                },
-                {"type": "text", "text": "Describe this image."},
-            ],
+            "content": [{"type": "image", "image": img_path} for img_path in config.imgs_paths]
+                + [{"type": "text", "text": "Describe this image."}],
         }
     ]
 
     # Check context
     assert len(messages) == config.batch_size, f"messages number should be equal to batch_size, but now messages batch size = {len(messages)}, config batch_size = {config.batch_size}"
-    for i in range(config.batch_size):
-        numbers_img = sum([1 if content["type"] == "image" else 0 for content in messages[i]["content"]])
-        # assert numbers_img == config.imgs_nums, f"The number of imgs is mismatch, {numbers_img} != {config.imgs_nums}"
 
     return processor.apply_chat_template(
         messages,

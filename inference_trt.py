@@ -49,7 +49,7 @@ def vlm_tensorrt_forward(self, input_ids, attention_masks, image_embeds):
     return vlm_outputs
 
 
-def merge_tensorrt_forward(self, input_ids, attention_mask, pixel_values, image_grid_thw, **kwargs):
+def merge_tensorrt_forward(self, input_ids, attention_mask, pixel_values, image_grid_thw, position_ids, **kwargs):
     # print("vit_tensorrt_forward")
     # print(f"{input_ids.shape}, {input_ids.dtype}, {input_ids.device}")
     # print(f"{attention_mask.shape}, {attention_mask.dtype}, {attention_mask.device}")
@@ -177,6 +177,7 @@ def compare_inference_speed(config):
     model_input = get_model_input(config)
     qwen_model = Qwen3VLForConditionalGeneration.from_pretrained(config.qwen_path, dtype=torch.bfloat16,
                                                                  device_map='cpu', attn_implementation="eager")
+    # origin_output = qwen_model.generate(**model_input, use_cache=False, max_length=1280)
     # qwen_start_time = time.perf_counter()
     # qwen_tokens = 0
     # for _ in range(10):
