@@ -10,7 +10,7 @@ This repository provides the ONNX-converted version of the **qwen3-vl-2b** multi
 - **Conversion Source**: Original qwen3-vl-2b (PyTorch) → ONNX format
 
 ## Future Features
-- **Qwen3.5-VL ONNX**: will be created soon.
+- **Qwen3.5-VL ONNX**: will be created soon soon soon!
 
 ## Inference Example
 ### Input
