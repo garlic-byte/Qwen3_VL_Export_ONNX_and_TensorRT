@@ -24,7 +24,7 @@ MAX_LEN=1024
 BATCH_SIZE=1
 IMG_NUMS=1
 IMG_LENGTH=512
-ONNX_DIR="export/qwen3_vl_2b_fp16"
+ONNX_DIR="export/qwen3_vl_2b"
 
 
 if [ -e /usr/src/tensorrt/bin/trtexec ]; then

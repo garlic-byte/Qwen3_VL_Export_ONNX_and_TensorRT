@@ -365,5 +365,5 @@ def main(config: ArgsConfig):
 
 if __name__ == "__main__":
     config = ArgsConfig()
-    config.onnx_path = config.export_path + "_" + config.dtype + "/ONNX"
+    config.onnx_path = config.export_path + "/ONNX"
     main(config)

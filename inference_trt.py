@@ -209,6 +209,5 @@ if __name__ == "__main__":
     device = 'cuda'
     config = ArgsConfig()
     config.device = device
-    config.export_path += "_" + config.dtype
     # load_model_tensorrt(config)
     compare_inference_speed(config)
