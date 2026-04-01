@@ -1,16 +1,17 @@
 import os
 import time
 
-from qwen3_vl_export_onnx import get_model_input, Qwen3VLVisualModelOpt, ArgsConfig
+from qwen3_vl_export_onnx import Qwen3VLVisualModelOpt
 import torch
-from transformers import Qwen3VLForConditionalGeneration, Qwen3VLVisionModel, AutoTokenizer
+from transformers import Qwen3VLForConditionalGeneration, Qwen3VLVisionModel, AutoTokenizer, Qwen3_5ForConditionalGeneration
 from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLTextRotaryEmbedding, Qwen3VLModel, Qwen3VLTextModel, create_causal_mask
 import onnx
 import onnxruntime as ort
 import netron
 import numpy as np
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-
+from utils import get_model_input, get_qwen35_onnx_input
+from config.qwen35_config import ArgsConfig
 
 
 def compare_predictions(pred_tensorrt, pred_torch) -> None:
@@ -102,34 +103,16 @@ def check_info(onnx_path, onnx_inputs):
         # assert inputs_info[name] == arr.shape, f"Need input {name} shape == {inputs_info[name]} but got {arr.shape} !!!"
 
 
-def load_onnx_llm(inputs, onnx_llm):
-    batch_size = 1
-    seq_len = 144
-    hidden_size = 2048
-    deepstack_visual_len = 3
-    torch.manual_seed(42)
-    visual_pos_masks = torch.rand(batch_size, seq_len) > 0.5
-    x = visual_pos_masks.sum().item()
+def load_onnx_part(inputs, onnx_part):
+    onnx_inputs = {}
+    for input_name, input_tensor in zip(inputs["input_names"], inputs["inputs"]):
+        onnx_inputs[input_name] = input_tensor.cpu().numpy()
 
-    base_pos = torch.arange(seq_len)
-    position_ids = base_pos.view(1, 1, seq_len).repeat(3, 1, 1).to(device)
-    inputs_embeds = torch.randn((batch_size, seq_len, hidden_size), dtype=torch.float16 if config.dtype=='fp16' else torch.float32).to(device)
-    visual_pos_masks = visual_pos_masks.to(device)
-    deepstack_visual_embeds = torch.randn((deepstack_visual_len, x, 2048), dtype=torch.float16 if config.dtype=='fp16' else torch.float32).to(device)
-
-    onnx_inputs = {
-        # 从 GPU 迁移到 CPU，再转为 NumPy，保持原数据类型
-        "position_ids": position_ids.cpu().numpy(),
-        "inputs_embeds": inputs_embeds.cpu().numpy(),
-        "visual_pos_masks": visual_pos_masks.cpu().numpy(),
-        "deepstack_visual_embeds": deepstack_visual_embeds.cpu().numpy()
-    }
-
-    check_info(onnx_llm, onnx_inputs)
+    check_info(onnx_part, onnx_inputs)
 
     # 执行推理（output_names 为要获取的输出，若为 None 则返回所有输出）
     session = ort.InferenceSession(
-        onnx_llm,
+        onnx_part,
         providers=["CUDAExecutionProvider"]
     )
 
@@ -141,7 +124,7 @@ def load_onnx_llm(inputs, onnx_llm):
 
     onnx_outputs = session.run(
         input_feed=onnx_inputs,
-        output_names=["hidden_states"],
+        output_names=inputs["output_names"],
     )
 
     return onnx_outputs[0]
@@ -481,7 +464,16 @@ def compare_vlm_speed(inputs, config):
 def load_model_onnx(config):
     model_input = get_model_input(config)
     onnx_path = os.path.join(config.export_path, 'ONNX')
-    # qwen_model = Qwen3VLForConditionalGeneration.from_pretrained(config.qwen_path, dtype=torch.float32, device_map='cuda', attn_implementation="eager")
+    qwen_model = Qwen3_5ForConditionalGeneration.from_pretrained(config.qwen_path, dtype=torch.float32,
+                                                                 device_map='cpu', attn_implementation="eager")
+
+    onnx_input = get_qwen35_onnx_input(
+        config,
+        model_input,
+        llm_hidden_size=qwen_model.model.language_model.config.hidden_size,
+        vit_hidden_size=qwen_model.model.config.vision_config.out_hidden_size,
+        gen_hidden_size=qwen_model.config.text_config.hidden_size,
+    )
     # with torch.no_grad():
     #     model_output = qwen_model.generate(**model_input, use_cache=False)
     #     print(model_output)
@@ -490,14 +482,15 @@ def load_model_onnx(config):
     # export_onnx_file = os.path.join(config.onnx_path, 'vit/vit.onnx')
     # simpler_onnx(os.path.join(config.onnx_path, 'vit/vit.onnx'))
 
-    netron.start(os.path.join(onnx_path, 'vit/vit.onnx'))
+    # netron.start(os.path.join(onnx_path, 'vit/vit.onnx'))
 
     print("ONNX model load done!")
 
-    # load_onnx_llm(
-    #     inputs=model_input,
-    #     onnx_llm=os.path.join(config.onnx_path, 'llm/llm.onnx')
-    # )
+    part_name = 'vlm'
+    load_onnx_part(
+        inputs=onnx_input[part_name],
+        onnx_part=os.path.join(onnx_path, f'{part_name}/{part_name}.onnx')
+    )
     # compare_vit(model_input, onnx_qwen_vit, qwen_model.model.visual)
     # compare_llm(onnx_qwen_llm, qwen_model.model.language_model)
     # compare_llm_model(qwen_model.model.language_model)
@@ -530,5 +523,6 @@ def load_model_onnx(config):
 if __name__ == "__main__":
     device = 'cuda'
     cfg = ArgsConfig()
-    cfg.device = device
+    cfg.device = "cuda" if torch.cuda.is_available() else "cpu"
+    cfg.dtype = torch.float16 if cfg.dtype=="fp16" else torch.float32
     load_model_onnx(cfg)
