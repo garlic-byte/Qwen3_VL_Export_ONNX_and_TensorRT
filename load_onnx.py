@@ -1,7 +1,7 @@
 import os
 import time
 
-from qwen3_vl_export_onnx import get_model_input, Qwen3VLVisualModelOpt, ArgsConfig, export_qwen_vlm
+from qwen3_vl_export_onnx import get_model_input, Qwen3VLVisualModelOpt, ArgsConfig
 import torch
 from transformers import Qwen3VLForConditionalGeneration, Qwen3VLVisionModel, AutoTokenizer
 from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLTextRotaryEmbedding, Qwen3VLModel, Qwen3VLTextModel, create_causal_mask
@@ -480,6 +480,7 @@ def compare_vlm_speed(inputs, config):
 
 def load_model_onnx(config):
     model_input = get_model_input(config)
+    onnx_path = os.path.join(config.export_path, 'ONNX')
     # qwen_model = Qwen3VLForConditionalGeneration.from_pretrained(config.qwen_path, dtype=torch.float32, device_map='cuda', attn_implementation="eager")
     # with torch.no_grad():
     #     model_output = qwen_model.generate(**model_input, use_cache=False)
@@ -489,7 +490,7 @@ def load_model_onnx(config):
     # export_onnx_file = os.path.join(config.onnx_path, 'vit/vit.onnx')
     # simpler_onnx(os.path.join(config.onnx_path, 'vit/vit.onnx'))
 
-    # netron.start(os.path.join(config.onnx_path, 'vlm/vlm.onnx'))
+    netron.start(os.path.join(onnx_path, 'vit/vit.onnx'))
 
     print("ONNX model load done!")
 
@@ -507,12 +508,12 @@ def load_model_onnx(config):
     # )
     # load_onnx_vlm(
     #     inputs=model_input,
-    #     onnx_vlm=os.path.join(config.onnx_path, 'vlm/vlm.onnx')
+    #     onnx_vlm=os.path.join(onnx_path, 'vlm/vlm.onnx')
     # )
-    load_onnx_gen(
-        inputs=model_input,
-        onnx_gen=os.path.join(config.onnx_path, 'gen/gen.onnx'),
-    )
+    # load_onnx_gen(
+    #     inputs=model_input,
+    #     onnx_gen=os.path.join(onnx_path, 'gen/gen.onnx'),
+    # )
     # compare_vlm(
     #     inputs=model_input,
     #     onnx_vit=os.path.join(config.onnx_path, 'vit/vit.onnx'),
@@ -528,7 +529,6 @@ def load_model_onnx(config):
 
 if __name__ == "__main__":
     device = 'cuda'
-    config = ArgsConfig()
-    config.device = device
-    config.onnx_path += "_" + config.dtype + "/ONNX"
-    load_model_onnx(config)
+    cfg = ArgsConfig()
+    cfg.device = device
+    load_model_onnx(cfg)

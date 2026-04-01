@@ -151,6 +151,8 @@ def load_model_tensorrt(config):
     model_input["attention_mask"] = model_input["attention_mask"].to(dtype=torch.int64, device=config.device)
     model_input["pixel_values"] = model_input["pixel_values"].to(dtype=torch.float16 if config.dtype=="fp16" else torch.float32, device=config.device)
     model_input["image_grid_thw"] = model_input["image_grid_thw"].to(dtype=torch.int64, device=config.device)
+    del model_input["mm_token_type_ids"]
+
     with torch.no_grad():
         model_output = qwen_model.generate(**model_input, use_cache=False, max_length=1280)
 
@@ -191,6 +193,7 @@ def compare_inference_speed(config):
     model_input["attention_mask"] = model_input["attention_mask"].to(dtype=torch.int64, device=config.device)
     model_input["pixel_values"] = model_input["pixel_values"].to(dtype=torch.float16 if config.dtype=="fp16" else torch.float32, device=config.device)
     model_input["image_grid_thw"] = model_input["image_grid_thw"].to(dtype=torch.int64, device=config.device)
+    del model_input["mm_token_type_ids"]
 
     tensorrt_start_time = time.perf_counter()
     tensorrt_tokens = 0
@@ -201,8 +204,6 @@ def compare_inference_speed(config):
     tensorrt_end_time = time.perf_counter()
     # print(f"Qwen3-vl Generated tokens nums:{qwen_tokens}, speed: {(qwen_tokens / (qwen_end_time - qwen_start_time)): 2f} tokens/sec")
     print(f"Tensorrt Generated tokens nums:{tensorrt_tokens}, speed: {(tensorrt_tokens / (tensorrt_end_time - tensorrt_start_time)): 2f} tokens/sec")
-
-
 
 
 if __name__ == "__main__":
