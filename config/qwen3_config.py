@@ -14,7 +14,7 @@ class ArgsConfig:
     batch_size: int = 1
     """Batch size of input for ONNX model inference"""
 
-    imgs_paths: tuple = ("demo_data/input1.png", )
+    imgs_paths: tuple = ("demo_data/demo.jpeg", )
     """Path of images for ONNX model inference"""
 
     device: str = None

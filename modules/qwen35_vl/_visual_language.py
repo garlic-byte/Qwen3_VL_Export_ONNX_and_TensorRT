@@ -1,6 +1,7 @@
 import torch
 from transformers.models.qwen3_5.modeling_qwen3_5 import Qwen3_5Model
 from typing import Any, Callable, Optional, Union
+import itertools
 
 
 class Qwen35VLModelOpt(Qwen3_5Model):
@@ -11,70 +12,60 @@ class Qwen35VLModelOpt(Qwen3_5Model):
 
     def get_rope_index(
         self,
-        input_ids: Optional[torch.LongTensor] = None,
-        image_grid_thw: Optional[torch.LongTensor] = None,
-        video_grid_thw: Optional[torch.LongTensor] = None,
-        attention_mask: Optional[torch.Tensor] = None,
+        input_ids: torch.LongTensor | None = None,
+        mm_token_type_ids: torch.IntTensor | None = None,
+        image_grid_thw: torch.LongTensor | None = None,
+        attention_mask: torch.Tensor | None = None,
         **kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Different from the original implementation, Qwen3VL use timestamps rather than absolute time position ids."""
 
         spatial_merge_size = self.config.vision_config.spatial_merge_size
-        image_token_id = self.config.image_token_id
-        mrope_position_deltas = []
-        total_input_ids = input_ids
 
-        position_ids = torch.ones(
+        mrope_position_deltas = []
+        position_ids = torch.zeros(
             3,
             input_ids.shape[0],
             input_ids.shape[1],
             dtype=input_ids.dtype,
             device=input_ids.device,
         )
-        image_index, video_index = 0, 0
-        # attention_mask = attention_mask.to(total_input_ids.device)
-        for i in range(self.batch_size):
-            input_ids = input_ids[i]
-            image_nums = torch.tensor([self.imgs_nums], dtype=torch.int64)
-            input_tokens = input_ids.tolist()
-            llm_pos_ids_list: list = []
-            st = 0
-            st_idx = 0
-            remain_images = image_nums
-            for _ in range(image_nums):
-                ed_image = input_tokens.index(image_token_id, st)
 
-                t, h, w = (1, 16, 16)
-                image_index += 1
-                remain_images -= 1
-                ed = ed_image
+        for batch_idx in range(self.batch_size):
+            current_input_ids = input_ids[batch_idx]
+            input_token_type = mm_token_type_ids[batch_idx]
+            grid_thw = image_grid_thw[batch_idx]
 
-                llm_grid_t, llm_grid_h, llm_grid_w = (
-                    t,
-                    h // spatial_merge_size,
-                    w // spatial_merge_size,
-                )
-                text_len = ed - st
+            current_input_ids = current_input_ids[attention_mask[batch_idx].bool()]
+            input_token_type = input_token_type[attention_mask[batch_idx].bool()]
 
-                llm_pos_ids_list.append(torch.arange(text_len).view(1, -1).expand(3, -1) + st_idx)
-                # t_index is always 0 because llm_grid_t is always 1 (we use timestamps to encode the temporal information for videos)
-                t_index = torch.arange(llm_grid_t).view(-1, 1).expand(-1, llm_grid_h * llm_grid_w).flatten()
-                h_index = torch.arange(llm_grid_h).view(1, -1, 1).expand(llm_grid_t, -1, llm_grid_w).flatten()
-                w_index = torch.arange(llm_grid_w).view(1, 1, -1).expand(llm_grid_t, llm_grid_h, -1).flatten()
-                llm_pos_ids_list.append(torch.stack([t_index, h_index, w_index]) + text_len + st_idx)
-                st = ed + llm_grid_t * llm_grid_h * llm_grid_w
-                st_idx = llm_pos_ids_list[-1].max() + 1
+            visual_mask = (input_token_type == 1).float()
+            first_one = visual_mask.argmax(dim=0).item()
+            last_one = int((visual_mask * torch.arange(visual_mask.size(0), device=visual_mask.device)).max().item())
 
-            text_len = input_ids.shape[0] - st
-            llm_pos_ids_list.append(torch.arange(text_len).view(1, -1).expand(3, -1) + st_idx)
+            llm_pos_ids_list = []
+            # llm part
+            llm_pos_ids_list.append(
+                torch.arange(first_one, device=input_ids.device).view(1, -1).expand(3, -1)
+            )
+
+            # vision part
+            vision_position_ids = self.get_vision_position_ids(
+                first_one, grid_thw, 1, spatial_merge_size, device=input_ids.device
+            )
+            llm_pos_ids_list.append(vision_position_ids)
+            first_one += max(grid_thw[1], grid_thw[2]) // spatial_merge_size
+
+            # llm part
+            llm_pos_ids_list.append(
+                torch.arange(input_token_type.size(0) - last_one - 1, device=input_ids.device).view(1, -1).expand(3, -1) + first_one
+            )
 
             llm_positions = torch.cat(llm_pos_ids_list, dim=1).reshape(3, -1)
-            # position_ids[..., i, attention_mask[i] == 1] = llm_positions.to(position_ids.device)
-            position_ids[:, i, :] = llm_positions.to(position_ids.device)
-            mrope_position_deltas.append(llm_positions.max() + 1 - len(total_input_ids[i]))
+
+            position_ids[:, batch_idx, attention_mask[batch_idx].bool()] = llm_positions.to(position_ids.device)
+            mrope_position_deltas.append(llm_positions.max() + 1 - len(current_input_ids))
         mrope_position_deltas = torch.tensor(mrope_position_deltas, device=input_ids.device).unsqueeze(1)
         return position_ids, mrope_position_deltas
-
 
     def get_image_features(self, image_embeds: torch.Tensor, **kwargs):
         """
@@ -109,14 +100,18 @@ class Qwen35VLModelOpt(Qwen3_5Model):
         )
         inputs_embeds = inputs_embeds.masked_scatter(image_mask, image_embeds)
 
-        position_ids = self.compute_3d_position_ids(
+        vision_positions, rope_deltas = self.get_rope_index(
             input_ids=input_ids,
-            image_grid_thw=image_grid_thw,
-            video_grid_thw=None,
-            inputs_embeds=inputs_embeds,
-            attention_mask=attention_mask,
-            past_key_values=None,
             mm_token_type_ids=mm_token_type_ids,
+            image_grid_thw=image_grid_thw,
+            attention_mask=attention_mask,
         )
+        # self.model.rope_deltas = rope_deltas
+
+        text_positions = attention_mask.long().cumsum(-1) - 1
+        # We need this as otherwise padding tokens appear as -1 in position
+        text_positions = text_positions.masked_fill(attention_mask == 0, 0)
+        text_positions = text_positions[None, ...]
+        position_ids = torch.cat([text_positions, vision_positions], dim=0)
 
         return position_ids, inputs_embeds

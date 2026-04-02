@@ -482,11 +482,12 @@ def load_model_onnx(config):
     # export_onnx_file = os.path.join(config.onnx_path, 'vit/vit.onnx')
     # simpler_onnx(os.path.join(config.onnx_path, 'vit/vit.onnx'))
 
-    # netron.start(os.path.join(onnx_path, 'vit/vit.onnx'))
 
     print("ONNX model load done!")
 
     part_name = 'vlm'
+    netron.start(os.path.join(onnx_path, f'{part_name}/{part_name}.onnx'))
+
     load_onnx_part(
         inputs=onnx_input[part_name],
         onnx_part=os.path.join(onnx_path, f'{part_name}/{part_name}.onnx')

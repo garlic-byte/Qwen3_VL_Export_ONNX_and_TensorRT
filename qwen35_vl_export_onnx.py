@@ -49,18 +49,18 @@ def run_export(config: ArgsConfig):
     onnx_path = config.export_path + "/ONNX"
 
     part_qwen_model = {
-        # "llm": {
-        #     "original": qwen_model.model.language_model,
-        #     "optimized": Qwen35VLTextModelOpt(qwen_model.model.language_model.config),
-        # },
-        # "vit": {
-        #     "original": qwen_model.model.visual,
-        #     "optimized": Qwen35VLVisualModelOpt(qwen_model.model.visual.config),
-        # },
-        # "vlm": {
-        #     "original": qwen_model.model,
-        #     "optimized": Qwen35VLModelOpt(qwen_model.model.config, config),
-        # },
+        "llm": {
+            "original": qwen_model.model.language_model,
+            "optimized": Qwen35VLTextModelOpt(qwen_model.model.language_model.config),
+        },
+        "vit": {
+            "original": qwen_model.model.visual,
+            "optimized": Qwen35VLVisualModelOpt(qwen_model.model.visual.config),
+        },
+        "vlm": {
+            "original": qwen_model.model,
+            "optimized": Qwen35VLModelOpt(qwen_model.model.config, config),
+        },
         "gen": {
             "original": qwen_model,
             "optimized": Qwen35VLForConditionalGenerationOpt(qwen_model.config),

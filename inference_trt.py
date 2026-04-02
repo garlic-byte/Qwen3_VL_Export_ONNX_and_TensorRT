@@ -169,10 +169,10 @@ def load_model_tensorrt(config):
         print(output)
         print("\n" + "-" * 50 + "\n")
 
-    start_time = time.perf_counter()
-    for _ in range(1000):
-        qwen_model.forward(**model_input)
-    print(time.perf_counter() - start_time)
+    # start_time = time.perf_counter()
+    # for _ in range(1000):
+    #     qwen_model.forward(**model_input)
+    # print(time.perf_counter() - start_time)
 
 
 def compare_inference_speed(config):
@@ -210,5 +210,5 @@ if __name__ == "__main__":
     device = 'cuda'
     config = ArgsConfig()
     config.device = device
-    # load_model_tensorrt(config)
-    compare_inference_speed(config)
+    load_model_tensorrt(config)
+    # compare_inference_speed(config)
